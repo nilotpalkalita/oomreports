@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patient Assessment Summary - Patient KS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f1923; color: #e0e6ed; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; }
+
+  .header { background: #0a1018; border-bottom: 3px solid #1e5631; padding: 18px 28px; display: flex; justify-content: space-between; align-items: center; }
+  .header-left h1 { font-size: 11px; color: #7a9e7e; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+  .header-left h2 { font-size: 22px; font-weight: 700; color: #ffffff; }
+  .header-left p { font-size: 11px; color: #88a0a8; margin-top: 3px; }
+  .header-right { text-align: right; }
+  .risk-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .risk-high { background: #3d1a10; color: #e06040; border: 1px solid #6b2a1a; }
+  .header-right p { font-size: 11px; color: #88a0a8; }
+  .report-nav { background: #0f1923; border-bottom: 1px solid #1e3040; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .nav-group { display: flex; gap: 10px; flex-wrap: wrap; }
+  .nav-pill { border: 1px solid #1e3040; background: #162030; border-radius: 999px; color: #e0e6ed; display: inline-flex; align-items: center; min-height: 34px; padding: 7px 13px; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-decoration: none; text-transform: uppercase; }
+  .nav-pill:hover { border-color: #5fc87a; color: #5fc87a; }
+  .nav-pill.primary { background: #1a3d2b; border-color: #2a5a3b; color: #5fc87a; }
+  .nav-pill.disabled { color: #5a7a8a; opacity: 0.65; }
+
+  .page { padding: 20px 24px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .full { margin-bottom: 16px; }
+
+  .card { background: #162030; border: 1px solid #1e3040; border-radius: 8px; padding: 16px; }
+  .card-title { font-size: 10px; font-weight: 700; color: #5a9e6f; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid #1e3040; padding-bottom: 8px; }
+
+  .score-row { display: flex; justify-content: space-around; align-items: flex-end; margin-top: 8px; }
+  .score-item { text-align: center; }
+  .score-num { font-size: 48px; font-weight: 800; line-height: 1; }
+  .score-label { font-size: 10px; color: #88a0a8; margin-top: 4px; }
+  .score-tag { font-size: 9px; font-weight: 700; padding: 3px 9px; border-radius: 10px; margin-top: 5px; display: inline-block; }
+  .tag-normal { background: #1a3d2b; color: #5fc87a; }
+  .tag-mild { background: #2d3f1a; color: #a3cb5f; }
+  .tag-moderate { background: #3d3210; color: #d4a843; }
+  .tag-severe { background: #3d1a10; color: #e05a3a; }
+  .tag-extreme { background: #2d0a0a; color: #e03030; }
+  .tag-sub { background: #2d3010; color: #b8c840; }
+
+  .eq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .eq-item { background: #0f1923; border-radius: 6px; padding: 10px 12px; }
+  .eq-domain { font-size: 10px; color: #88a0a8; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .eq-val { font-size: 12px; font-weight: 600; color: #e0e6ed; }
+  .eq-bar { height: 4px; border-radius: 2px; margin-top: 6px; }
+  .eq-none    { background: #1a6b3a; width: 10%; }
+  .eq-slight  { background: #3a8a40; width: 25%; }
+  .eq-moderate{ background: #d4a843; width: 50%; }
+  .eq-severe  { background: #e06020; width: 75%; }
+  .eq-extreme { background: #c83030; width: 100%; }
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .compare-table th { background: #0f1923; color: #5a9e6f; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 8px 10px; text-align: left; border-bottom: 1px solid #1e3040; }
+  .compare-table td { padding: 9px 10px; border-bottom: 1px solid #1a2838; vertical-align: top; line-height: 1.5; }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .med-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .med-table th { background: #0f1923; color: #5a9e6f; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 7px 10px; text-align: left; border-bottom: 1px solid #1e3040; }
+  .med-table td { padding: 8px 10px; border-bottom: 1px solid #1a2838; vertical-align: top; line-height: 1.6; }
+  .med-table tr:last-child td { border-bottom: none; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; }
+  .pill-oral   { background: #1a3d2b; color: #5fc87a; border: 1px solid #2a5a3b; }
+  .pill-opioid { background: #3d2010; color: #e09040; border: 1px solid #5a3020; }
+  .pill-benzo  { background: #3d1030; color: #e060a0; border: 1px solid #5a2040; }
+  .pill-sedative{ background: #1a2d4d; color: #5a9ee0; border: 1px solid #2a4060; }
+  .pill-warn   { background: #3d2d10; color: #e0b040; border: 1px solid #5a4020; }
+
+  .section-label { font-size: 10px; font-weight: 700; color: #1e5631; letter-spacing: 3px; text-transform: uppercase; margin: 20px 0 12px; padding-left: 10px; border-left: 3px solid #1e5631; }
+
+  .engagement-banner { background: #162030; border: 1px solid #1e3040; border-left: 4px solid #5a9ee0; border-radius: 0 8px 8px 0; padding: 14px 18px; margin-bottom: 16px; }
+  .engagement-banner h3 { font-size: 11px; color: #5a9ee0; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
+  .engagement-banner p { font-size: 12px; color: #a8c4d8; line-height: 1.7; }
+
+  .clinical-box { background: #162030; border: 1px solid #1e3040; border-left: 3px solid #d4a843; border-radius: 0 6px 6px 0; padding: 12px 16px; margin-bottom: 8px; font-size: 12px; line-height: 1.7; color: #c8b870; }
+  .clinical-box .cl-date { font-size: 10px; color: #88a0a8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+
+  .weight-card { display: flex; align-items: center; gap: 20px; }
+  .weight-val { font-size: 52px; font-weight: 800; color: #e0e6ed; line-height: 1; }
+  .weight-meta { font-size: 11px; color: #88a0a8; }
+  .weight-meta span { display: block; margin-bottom: 4px; }
+  .weight-card.compact { flex-direction: column; justify-content: center; text-align: center; min-height: 185px; gap: 10px; }
+
+  .warn-box { background: #2a1a0a; border: 1px solid #6a4010; border-left: 4px solid #d4a843; border-radius: 0 6px 6px 0; padding: 12px 16px; font-size: 12px; color: #c8a060; line-height: 1.7; margin-bottom: 8px; }
+  .warn-box strong { color: #e0b840; }
+
+  .footnote { font-size: 10px; color: #5a7a8a; margin-top: 8px; font-style: italic; }
+  canvas { max-height: 180px; }
+
+  .baseline-only-tag { display: inline-block; background: #2d3010; color: #b8c840; border: 1px solid #4a4a20; padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; margin-left: 8px; vertical-align: middle; }
+  @media (max-width: 720px) {
+    .header { align-items: flex-start; flex-direction: column; gap: 12px; }
+    .header-right { text-align: left; }
+    .report-nav { align-items: flex-start; flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <h1>Patient Assessment Summary</h1>
+    <h2>Patient KS &nbsp;·&nbsp; OOM002</h2>
+    <p>Prescriber: Dr David Gunn &nbsp;·&nbsp; Program: OOM Connected Medicines Program</p>
+  </div>
+  <div class="header-right">
+    <div class="risk-badge risk-high">Complex Profile - High Burden</div>
+    <p>Baseline: 12 Nov 2025 &nbsp;·&nbsp; Day 30 &amp; Day 70 questionnaires: Not completed</p>
+    <p style="margin-top:4px; font-size:10px; color:#5a7a8a;">Report Date: 2 April 2026 &nbsp;·&nbsp; Data Sources: OOM Baseline + SafeScript + Prescriber Notes</p>
+  </div>
+</div>
+
+<nav class="report-nav" aria-label="Report navigation">
+  <a class="nav-pill primary" href="OOM Reports.html">&larr; Back to all reports</a>
+  <div class="nav-group">
+    <a class="nav-pill" href="Patient GG.html">Previous: Patient GG</a>
+    <span class="nav-pill disabled" aria-disabled="true">Next</span>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- Engagement Banner -->
+  <div class="engagement-banner">
+    <h3>ℹ Questionnaire Engagement Note</h3>
+    <p>Patient KS completed baseline questionnaires on 12 November 2025. Day 30 and Day 70 questionnaires were not completed. Patient KS continues to be actively engaged with their treating physician, Dr David Gunn, and continues prescribed treatment. This context is clinically recognised in patients managing multifactorial chronic conditions with concurrent psychosocial stressors. OOM monitoring attempts will continue at scheduled intervals. All outcome charts below reflect <strong>baseline data only.</strong></p>
+  </div>
+
+  <!-- ROW 1: DASS + ISI scores (baseline only) -->
+  <div class="section-label">Validated Outcome Measures - Baseline Only (12 November 2025)</div>
+  <div class="grid-3">
+
+    <!-- DASS-21 -->
+    <div class="card">
+      <div class="card-title">DASS-21 &nbsp;·&nbsp; Baseline <span class="baseline-only-tag">Baseline Only</span></div>
+      <div class="score-row">
+        <div class="score-item">
+          <div style="font-size:10px; color:#88a0a8; margin-bottom:6px;">DEPRESSION</div>
+          <div class="score-num" style="font-size:40px; color:#e07040;">12</div>
+          <div class="score-label">/ 42</div>
+          <span class="score-tag tag-mild">Mild</span>
+        </div>
+        <div class="score-item">
+          <div style="font-size:10px; color:#88a0a8; margin-bottom:6px;">ANXIETY</div>
+          <div class="score-num" style="font-size:40px; color:#d4a843;">10</div>
+          <div class="score-label">/ 42</div>
+          <span class="score-tag tag-moderate">Moderate</span>
+        </div>
+        <div class="score-item">
+          <div style="font-size:10px; color:#88a0a8; margin-bottom:6px;">STRESS</div>
+          <div class="score-num" style="font-size:40px; color:#5a9ee0;">14</div>
+          <div class="score-label">/ 42</div>
+          <span class="score-tag tag-normal">Normal</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ISI -->
+    <div class="card">
+      <div class="card-title">ISI &nbsp;·&nbsp; Insomnia Severity <span class="baseline-only-tag">Baseline Only</span></div>
+      <div style="text-align:center; padding:20px 0;">
+        <div class="score-num" style="color:#d4a843; font-size:56px;">11</div>
+        <div class="score-label" style="font-size:12px; margin-top:4px;">/ 28 &nbsp;·&nbsp; Sub-threshold Insomnia</div>
+        <span class="score-tag tag-sub" style="margin-top:10px; font-size:11px;">ISI 8–14 = Sub-threshold</span>
+      </div>
+      <table style="width:100%; font-size:11px; margin-top:8px; border-collapse:collapse;">
+        <tr><td style="padding:4px 0; color:#88a0a8;">Falling asleep</td><td style="color:#d4a843; font-weight:600;">Moderate</td></tr>
+        <tr><td style="padding:4px 0; color:#88a0a8;">Staying asleep</td><td style="color:#e06040; font-weight:600;">Severe</td></tr>
+        <tr><td style="padding:4px 0; color:#88a0a8;">Early morning waking</td><td style="color:#5fc87a; font-weight:600;">Mild</td></tr>
+        <tr><td style="padding:4px 0; color:#88a0a8;">Sleep satisfaction</td><td style="color:#5fc87a; font-weight:600;">Satisfied</td></tr>
+        <tr><td style="padding:4px 0; color:#88a0a8;">Daily interference</td><td style="color:#d4a843; font-weight:600;">Somewhat</td></tr>
+      </table>
+    </div>
+
+    <!-- Weight -->
+    <div class="card">
+      <div class="card-title">Body Weight (kg) <span class="baseline-only-tag">Baseline Only</span></div>
+      <div class="weight-card compact">
+        <div>
+          <div class="weight-val">108</div>
+          <div style="font-size:16px; color:#5a9e6f; font-weight:700;">kg</div>
+        </div>
+        <div class="weight-meta">
+          <span>Recorded: 12 Nov 2025</span>
+          <span>Follow-up weight not available</span>
+        </div>
+        <div class="footnote">Prescriber notes from 30 Jan 2026 document a patient-reported 42 kg weight loss over the prior 16 months.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EQ-5D-5L Baseline -->
+  <div class="full card">
+    <div class="card-title">EQ-5D-5L &nbsp;·&nbsp; Functional Status - Baseline <span class="baseline-only-tag">Baseline Only</span></div>
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Domain</th>
+          <th>Baseline</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Mobility</td>
+          <td>Severe Problems</td>
+        </tr>
+        <tr>
+          <td>Self-Care</td>
+          <td>Moderate Problems</td>
+        </tr>
+        <tr>
+          <td>Usual Activities</td>
+          <td>Severe Problems</td>
+        </tr>
+        <tr>
+          <td>Pain / Discomfort</td>
+          <td>Extreme Pain</td>
+        </tr>
+        <tr>
+          <td>Anxiety / Depression</td>
+          <td>Severe</td>
+        </tr>
+        <tr>
+          <td>Health VAS</td>
+          <td>38 / 100</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="footnote">Baseline EQ-5D-5L only. Follow-up EQ-5D-5L questionnaires were not completed.</div>
+  </div>
+
+  <!-- MEDICATIONS -->
+  <div class="section-label">Medication Dispensing - SafeScript Records (Baseline to March 2026)</div>
+
+  <div class="full card">
+    <div class="card-title">Section 1.1 &nbsp;·&nbsp; Medical Cannabis Medications</div>
+    <table class="med-table">
+      <thead>
+        <tr>
+          <th>Medication</th>
+          <th>Formulation</th>
+          <th>Cannabinoid Content</th>
+          <th>Dispensing Periods &amp; Intervals</th>
+          <th>Average Daily THC</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Spectrum Red (Oil No. 1)</strong></td>
+          <td><span class="pill pill-oral">Oral Oil</span></td>
+          <td>26.3 mg/mL THC</td>
+          <td>11 Nov 2025 → 3 Feb 2026 (85 days, 50 mL) &nbsp;·&nbsp; 3 Feb → 22 Mar 2026 (47 days, 50 mL)</td>
+          <td><strong>15.5 mg/day</strong> (85 d) → <strong>27.98 mg/day</strong> (47 d)</td>
+        </tr>
+        <tr>
+          <td><strong>Hay Day "3s" Pastilles</strong></td>
+          <td><span class="pill pill-oral">Oral Pastille</span></td>
+          <td>3 mg THC / 3 mg CBD / 3 mg CBG</td>
+          <td>8 Nov → 3 Feb (87 d) &nbsp;·&nbsp; 3 Feb → 4 Mar (29 d) &nbsp;·&nbsp; 4 Mar → 22 Mar (18 d)</td>
+          <td>2.07 mg/day → 6.21 mg/day → <strong>10 mg/day</strong></td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:14px; padding:10px 14px; background:#0f1923; border-radius:6px; font-size:11px;">
+      <strong style="color:#5a9e6f;">Combined Average Daily Oral THC:</strong>
+      <span style="color:#e0e6ed; margin-left:8px;">Period 1 (Nov 2025–Feb 2026): ~17.6 mg/day &nbsp;|&nbsp; Period 2 (Feb–Mar 2026): ~37.98 mg/day</span>
+      <div class="footnote" style="margin-top:4px;">Increase primarily driven by Spectrum Red. Baseline daily average for Spectrum Red was not verified. Hay Day 3s baseline average: 9 mg/day (estimated).</div>
+    </div>
+  </div>
+
+  <div class="full card">
+    <div class="card-title">Section 1.2 &nbsp;·&nbsp; Opioid, Benzodiazepine &amp; Sedative Medications</div>
+    <table class="med-table">
+      <thead>
+        <tr>
+          <th>Medication</th>
+          <th>Strength</th>
+          <th>Typical Qty</th>
+          <th>Dispensing Frequency (SafeScript)</th>
+          <th>Average Daily Dose</th>
+          <th>Baseline Comparison</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Oxycodone</strong></td>
+          <td>5 mg tablets</td>
+          <td>80 tabs (20 in Dec)</td>
+          <td>~Every 14 days from 25 Nov 2025 · 9 dispensings to Mar 2026</td>
+          <td><strong>~28.5 mg/day</strong></td>
+          <td>Baseline: ~30 mg/day · Minimal change</td>
+        </tr>
+        <tr>
+          <td><strong>Codeine/Paracetamol<br>(Panadeine Forte)</strong></td>
+          <td>30 mg codeine</td>
+          <td>40 tabs</td>
+          <td>~Every 14 days from Dec 2025 · 8 dispensings to Mar 2026</td>
+          <td><strong>~84 mg codeine/day</strong></td>
+          <td>Baseline: PRN (unverified) · Now consistent daily use</td>
+        </tr>
+        <tr>
+          <td><strong>Diazepam</strong></td>
+          <td>5 mg tablets</td>
+          <td>5–40 tabs (escalating)</td>
+          <td>11 dispensings Dec 2025–Mar 2026 · Qty increased from 20→40 tabs by Feb 2026</td>
+          <td><strong>~14.5 mg/day</strong></td>
+          <td>Baseline: PRN (unverified) · Frequency &amp; quantity escalating</td>
+        </tr>
+        <tr>
+          <td><strong>Zopiclone</strong></td>
+          <td>10 mg</td>
+          <td>7–14 tabs</td>
+          <td>29 Jan 2026 (7 tabs) · 17 Mar 2026 (14 tabs)</td>
+          <td><strong>~4.5 mg/day</strong></td>
+          <td>Baseline: Zolpidem 10 mg/night · Product switch noted</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Medication charts -->
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">Oral THC Trend &nbsp;·&nbsp; Spectrum Red / Hay Day / Total</div>
+      <canvas id="ksThcChart" style="max-height:170px;"></canvas>
+      <div class="footnote">Line view of oral THC across dispensing windows. Total oral THC rose across the current reporting period, driven mainly by Spectrum Red.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Daily Morphine Equivalent Over Time</div>
+      <canvas id="ksMmeChart" style="max-height:170px;"></canvas>
+      <div class="footnote">MME is estimated from oxycodone and codeine using the supplied conversion rules: oxycodone × 1.5 and codeine × 0.15. The chart is intended to show change over time rather than exact day-by-day exposure.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Daily Diazepam Equivalent Over Time</div>
+      <canvas id="ksDeChart" style="max-height:170px;"></canvas>
+      <div class="footnote">DE combines diazepam and zopiclone using diazepam × 1 and zopiclone × 0.67. Diazepam escalation remains the main driver, with zopiclone adding to the late-period sedative burden.</div>
+    </div>
+  </div>
+
+  <div style="text-align:center; padding:20px; color:#3a5a4a; font-size:10px; border-top:1px solid #1e3040; margin-top:8px;">
+    OnTracka Australia Pty Limited &nbsp;·&nbsp; www.ontracka.com &nbsp;·&nbsp; info@ontracka.com &nbsp;·&nbsp; CONFIDENTIAL &nbsp;·&nbsp; OOM Connected Medicines Program
+  </div>
+</div>
+
+<script>
+const chartDefaults = {
+  responsive: true, maintainAspectRatio: true,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { color: '#88a0a8', font: { size: 10 } }, grid: { color: '#1e3040' } },
+    y: { ticks: { color: '#88a0a8', font: { size: 10 } }, grid: { color: '#1e3040' }, beginAtZero: true }
+  }
+};
+
+// KS THC trend
+new Chart(document.getElementById('ksThcChart'), {
+  type: 'line',
+  data: {
+    labels: ['11 Nov-3 Feb', '3 Feb-4 Mar', '4 Mar-22 Mar'],
+    datasets: [
+      {
+        label:'Spectrum Red',
+        data:[15.5, 27.98, 27.98],
+        borderColor:'#5fc87a',
+        backgroundColor:'rgba(95,200,122,0.12)',
+        tension:0.28,
+        pointRadius:5,
+        pointBackgroundColor:'#5fc87a'
+      },
+      {
+        label:'Hay Day 3s',
+        data:[2.07, 6.21, 10],
+        borderColor:'#d4a843',
+        backgroundColor:'rgba(212,168,67,0.10)',
+        tension:0.28,
+        pointRadius:5,
+        pointBackgroundColor:'#d4a843'
+      },
+      {
+        label:'Total oral THC',
+        data:[17.57, 34.19, 37.98],
+        borderColor:'#5a9ee0',
+        backgroundColor:'rgba(90,158,224,0.10)',
+        tension:0.28,
+        pointRadius:5,
+        pointBackgroundColor:'#5a9ee0'
+      }
+    ]
+  },
+  options: {
+    ...chartDefaults,
+    plugins: { legend: { display: true, labels: { color:'#88a0a8', font:{size:10}, boxWidth:10 } } },
+    scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 45, title: { display:true, text:'mg/day', color:'#88a0a8', font:{size:9} } } }
+  }
+});
+
+// KS daily morphine equivalent trend
+new Chart(document.getElementById('ksMmeChart'), {
+  type: 'line',
+  data: {
+    labels: ['11 Nov-3 Feb', '3 Feb-4 Mar', '4 Mar-22 Mar'],
+    datasets: [
+      {
+        label:'Oxycodone MME',
+        data:[45, 42.75, 42.75],
+        borderColor:'#e07040',
+        backgroundColor:'rgba(224,112,64,0.12)',
+        tension:0.22,
+        pointRadius:5,
+        pointBackgroundColor:'#e07040'
+      },
+      {
+        label:'Codeine MME',
+        data:[0, 12.6, 12.6],
+        borderColor:'#d4a843',
+        backgroundColor:'rgba(212,168,67,0.12)',
+        tension:0.22,
+        pointRadius:5,
+        pointBackgroundColor:'#d4a843'
+      },
+      {
+        label:'Total MME',
+        data:[45, 55.35, 55.35],
+        borderColor:'#5a9ee0',
+        backgroundColor:'rgba(90,158,224,0.12)',
+        tension:0.22,
+        pointRadius:5,
+        pointBackgroundColor:'#5a9ee0'
+      }
+    ]
+  },
+  options: {
+    ...chartDefaults,
+    plugins: { legend: { display: true, labels: { color:'#88a0a8', font:{size:10}, boxWidth:10 } } },
+    scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 65, title: { display:true, text:'MME mg/day', color:'#88a0a8', font:{size:9} } } }
+  }
+});
+
+// KS daily diazepam equivalent trend
+new Chart(document.getElementById('ksDeChart'), {
+  type: 'line',
+  data: {
+    labels: ['11 Nov-3 Feb', '3 Feb-4 Mar', '4 Mar-22 Mar'],
+    datasets: [
+      {
+        label:'Diazepam equivalent from diazepam',
+        data:[6.2, 20, 11.1],
+        backgroundColor:'rgba(224,112,48,0.10)',
+        borderColor:'#e07030',
+        borderWidth:2,
+        tension:0.22,
+        pointRadius:4,
+        pointBackgroundColor:'#e07030'
+      },
+      {
+        label:'Diazepam equivalent from zopiclone',
+        data:[0.55, 0, 5.21],
+        backgroundColor:'rgba(90,158,224,0.10)',
+        borderColor:'#5a9ee0',
+        borderWidth:2,
+        tension:0.22,
+        pointRadius:4,
+        pointBackgroundColor:'#5a9ee0'
+      },
+      {
+        label:'Total DE',
+        data:[6.75, 20, 16.32],
+        backgroundColor:'rgba(212,168,67,0.12)',
+        borderColor:'#d4a843',
+        borderWidth:2,
+        tension:0.22,
+        pointRadius:4,
+        pointBackgroundColor:'#d4a843',
+        fill:true
+      }
+    ]
+  },
+  options: {
+    ...chartDefaults,
+    plugins: { legend: { display: true, labels: { color:'#88a0a8', font:{size:10}, boxWidth:10 } } },
+    scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 24, title: { display:true, text:'DE mg/day', color:'#88a0a8', font:{size:9} } } }
+  }
+});
+</script>
+</body>
+</html>
