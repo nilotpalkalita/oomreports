@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patient Assessment Summary - Patient GG</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f1923; color: #e0e6ed; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; }
+
+  /* Header */
+  .header { background: #0a1018; border-bottom: 3px solid #1e5631; padding: 18px 28px; display: flex; justify-content: space-between; align-items: center; }
+  .header-left h1 { font-size: 11px; color: #7a9e7e; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+  .header-left h2 { font-size: 22px; font-weight: 700; color: #ffffff; }
+  .header-left p { font-size: 11px; color: #88a0a8; margin-top: 3px; }
+  .header-right { text-align: right; }
+  .risk-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .risk-medium { background: #2d4a1e; color: #7ecb5f; border: 1px solid #3a6b28; }
+  .header-right p { font-size: 11px; color: #88a0a8; }
+  .report-nav { background: #0f1923; border-bottom: 1px solid #1e3040; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .nav-group { display: flex; gap: 10px; flex-wrap: wrap; }
+  .nav-pill { border: 1px solid #1e3040; background: #162030; border-radius: 999px; color: #e0e6ed; display: inline-flex; align-items: center; min-height: 34px; padding: 7px 13px; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-decoration: none; text-transform: uppercase; }
+  .nav-pill:hover { border-color: #5fc87a; color: #5fc87a; }
+  .nav-pill.primary { background: #1a3d2b; border-color: #2a5a3b; color: #5fc87a; }
+  .nav-pill.disabled { color: #5a7a8a; opacity: 0.65; }
+
+  /* Layout */
+  .page { padding: 20px 24px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .full { margin-bottom: 16px; }
+
+  /* Cards */
+  .card { background: #162030; border: 1px solid #1e3040; border-radius: 8px; padding: 16px; }
+  .card-title { font-size: 10px; font-weight: 700; color: #5a9e6f; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid #1e3040; padding-bottom: 8px; }
+  .overview-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .symptom-card { background: #162030; border: 1px solid #1e3040; border-radius: 10px; padding: 14px; }
+  .symptom-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+  .symptom-name { font-size: 13px; font-weight: 700; color: #ffffff; }
+  .symptom-source { font-size: 10px; color: #88a0a8; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.8px; }
+  .symptom-metric { font-size: 12px; font-weight: 800; color: #5fc87a; white-space: nowrap; }
+  .symptom-sub { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .direction-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; }
+  .dir-up { background: #3d1a10; color: #e05a3a; }
+  .dir-down { background: #1a3d2b; color: #5fc87a; }
+  .dir-flat { background: #1a3040; color: #7fb7d9; }
+  .symptom-note { font-size: 10px; color: #88a0a8; margin-top: 8px; line-height: 1.5; }
+  .overview-legend { display: flex; flex-wrap: wrap; gap: 8px; margin: -2px 0 14px 0; }
+  .legend-chip { display: inline-flex; align-items: center; gap: 6px; background: #162030; border: 1px solid #1e3040; border-radius: 999px; padding: 5px 9px; font-size: 9px; font-weight: 700; color: #a8c4d8; letter-spacing: 0.4px; text-transform: uppercase; }
+  .legend-chip::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+  .legend-symptom { color: #f1d58a; }
+  .legend-thc { color: #5fc87a; }
+  .legend-mme { color: #e07040; }
+  .change-list { display: grid; gap: 8px; }
+  .change-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; background: #0f1923; border-radius: 6px; padding: 10px 12px; }
+  .change-row strong { color: #e0e6ed; font-size: 12px; }
+
+  /* Score displays */
+  .score-row { display: flex; justify-content: space-around; align-items: flex-end; margin-top: 8px; }
+  .score-item { text-align: center; }
+  .score-num { font-size: 36px; font-weight: 800; line-height: 1; }
+  .score-label { font-size: 10px; color: #88a0a8; margin-top: 4px; }
+  .score-tag { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-top: 5px; display: inline-block; }
+  .tag-normal { background: #1a3d2b; color: #5fc87a; }
+  .tag-mild { background: #2d3f1a; color: #a3cb5f; }
+  .tag-moderate { background: #3d3210; color: #d4a843; }
+  .tag-severe { background: #3d1a10; color: #e05a3a; }
+  .tag-extreme { background: #2d0a0a; color: #e03030; }
+  .tag-clinical { background: #3d1a10; color: #e05a3a; }
+  .tag-sub { background: #2d3010; color: #b8c840; }
+  .tag-none { background: #1a3040; color: #60a8c8; }
+
+  /* Trend arrows */
+  .trend-up { color: #e05a3a; font-size: 12px; }
+  .trend-down { color: #5fc87a; font-size: 12px; }
+  .trend-stable { color: #88a0a8; font-size: 12px; }
+
+  /* EQ-5D */
+  .eq-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .eq-item { background: #0f1923; border-radius: 6px; padding: 10px 12px; }
+  .eq-domain { font-size: 10px; color: #88a0a8; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .eq-val { font-size: 12px; font-weight: 600; color: #e0e6ed; }
+  .eq-bar { height: 4px; border-radius: 2px; margin-top: 6px; }
+  .eq-none  { background: #1a6b3a; width: 10%; }
+  .eq-slight { background: #3a8a40; width: 25%; }
+  .eq-moderate { background: #d4a843; width: 50%; }
+  .eq-severe   { background: #e06020; width: 75%; }
+  .eq-extreme  { background: #c83030; width: 100%; }
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .compare-table th { background: #0f1923; color: #5a9e6f; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 8px 10px; text-align: left; border-bottom: 1px solid #1e3040; }
+  .compare-table td { padding: 9px 10px; border-bottom: 1px solid #1a2838; vertical-align: top; }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .change-chip { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 9px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; }
+  .change-stable { background: #1a3040; color: #7fb7d9; }
+  .change-improved { background: #1a3d2b; color: #5fc87a; }
+  .change-watch { background: #3d3210; color: #d4a843; }
+
+  /* Timeline dots */
+  .timeline { display: flex; align-items: center; gap: 0; margin-bottom: 12px; }
+  .t-dot { width: 10px; height: 10px; border-radius: 50%; background: #1e5631; flex-shrink: 0; }
+  .t-line { flex: 1; height: 2px; background: #1e3040; }
+  .t-dot.active { background: #5fc87a; }
+  .timepoint-labels { display: flex; justify-content: space-between; font-size: 9px; color: #5a7a8a; margin-bottom: 14px; }
+
+  /* Meds table */
+  .med-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .med-table th { background: #0f1923; color: #5a9e6f; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; padding: 7px 10px; text-align: left; border-bottom: 1px solid #1e3040; }
+  .med-table td { padding: 8px 10px; border-bottom: 1px solid #1a2838; vertical-align: top; line-height: 1.5; }
+  .med-table tr:last-child td { border-bottom: none; }
+  .med-table tr:hover td { background: #1a2838; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; }
+  .pill-oral { background: #1a3d2b; color: #5fc87a; border: 1px solid #2a5a3b; }
+  .pill-inhale { background: #1a2d4d; color: #5a9ee0; border: 1px solid #2a4060; }
+  .pill-disc { background: #3d1a10; color: #e08060; border: 1px solid #5a2a1a; }
+  .pill-new { background: #2d2d10; color: #e0c840; border: 1px solid #4a4a20; }
+  .pill-opioid { background: #3d2010; color: #e09040; border: 1px solid #5a3020; }
+
+  /* Comparison col headers */
+  .col-bl { color: #88a0a8; }
+  .col-d30 { color: #5a9ee0; }
+  .col-d70 { color: #5fc87a; }
+
+  /* Engagement note */
+  .eng-box { background: #1a2838; border-left: 4px solid #5a9ee0; border-radius: 0 6px 6px 0; padding: 12px 16px; font-size: 12px; line-height: 1.7; color: #a8c4d8; }
+  .eng-box strong { color: #5fc87a; }
+
+  /* Section divider */
+  .section-label { font-size: 10px; font-weight: 700; color: #1e5631; letter-spacing: 3px; text-transform: uppercase; margin: 20px 0 12px; padding-left: 4px; border-left: 3px solid #1e5631; padding-left: 10px; }
+
+  /* Clinical note box */
+  .clinical-box { background: #162030; border: 1px solid #1e3040; border-left: 3px solid #d4a843; border-radius: 0 6px 6px 0; padding: 12px 16px; margin-bottom: 8px; font-size: 12px; line-height: 1.7; color: #c8b870; }
+  .clinical-box .cl-date { font-size: 10px; color: #88a0a8; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; }
+
+  /* Weight */
+  .weight-row { display: flex; gap: 12px; align-items: flex-end; }
+  .weight-item { flex: 1; text-align: center; background: #0f1923; border-radius: 6px; padding: 12px 8px; }
+  .weight-val { font-size: 28px; font-weight: 800; color: #e0e6ed; }
+  .weight-unit { font-size: 11px; color: #5a9e6f; }
+  .weight-lbl { font-size: 10px; color: #88a0a8; margin-top: 4px; }
+  .weight-delta { font-size: 11px; font-weight: 700; margin-top: 4px; }
+  .metric-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .metric-pill { background: #0f1923; border: 1px solid #1e3040; border-radius: 6px; padding: 10px 12px; }
+  .metric-pill .metric-label { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: #88a0a8; margin-bottom: 4px; }
+  .metric-pill .metric-value { font-size: 18px; font-weight: 800; color: #e0e6ed; }
+  .metric-pill .metric-note { font-size: 10px; margin-top: 4px; }
+
+  /* Footnote */
+  .footnote { font-size: 10px; color: #5a7a8a; margin-top: 8px; font-style: italic; }
+
+  canvas { max-height: 180px; }
+  @media (max-width: 720px) {
+    .header { align-items: flex-start; flex-direction: column; gap: 12px; }
+    .header-right { text-align: left; }
+    .report-nav { align-items: flex-start; flex-direction: column; }
+    .overview-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <h1>Patient Assessment Summary</h1>
+    <h2>Patient GG &nbsp;·&nbsp; OOM001</h2>
+    <p>Claim: P2900307157 &nbsp;·&nbsp; Prescriber: Dr David Gunn &nbsp;·&nbsp; Program: OOM Connected Medicines Program</p>
+  </div>
+  <div class="header-right">
+    <div class="risk-badge risk-medium">Monitoring: Active</div>
+    <p>Baseline: 19 Nov 2025 &nbsp;·&nbsp; Day 30: 18 Dec 2025 &nbsp;·&nbsp; Day 70: 27 Jan 2026</p>
+    <p style="margin-top:4px; font-size:10px; color:#5a7a8a;">Report Date: 2 April 2026 &nbsp;·&nbsp; Data Sources: OOM Platform + SafeScript + Prescriber Notes</p>
+  </div>
+</div>
+
+<nav class="report-nav" aria-label="Report navigation">
+  <a class="nav-pill primary" href="OOM Reports.html">&larr; Back to all reports</a>
+  <div class="nav-group">
+    <span class="nav-pill disabled" aria-disabled="true">Previous</span>
+    <a class="nav-pill" href="Patient KS.html">Next: Patient KS</a>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- TIMELINE -->
+  <div class="timeline">
+    <div class="t-dot active"></div>
+    <div class="t-line"></div>
+    <div class="t-dot active"></div>
+    <div class="t-line"></div>
+    <div class="t-dot active"></div>
+  </div>
+  <div class="timepoint-labels">
+    <span title="19 Nov 2025">Baseline · 19 Nov 2025</span>
+    <span title="18 Dec 2025">Day 30 · 18 Dec 2025</span>
+    <span title="27 Jan 2026">Day 70 · 27 Jan 2026</span>
+  </div>
+
+  <div class="section-label">Clinical Overview - Symptom vs Medication</div>
+  <div class="overview-legend">
+    <span class="legend-chip legend-symptom">Symptom trend</span>
+    <span class="legend-chip legend-thc">Total oral THC</span>
+    <span class="legend-chip legend-mme">Daily morphine equivalent</span>
+  </div>
+  <div class="footnote" style="margin:0 0 14px 2px;">Mini-charts are normalized to show direction of movement across the three questionnaire timepoints. Raw THC and morphine-equivalent values remain in the medication trend section below.</div>
+  <div class="overview-grid">
+    <div class="symptom-card">
+      <div class="symptom-top">
+        <div>
+          <div class="symptom-name">Pain Score</div>
+          <div class="symptom-source">EQ-5D-5L Pain / Discomfort</div>
+        </div>
+        <div class="symptom-metric">4 → 4 → 4</div>
+      </div>
+      <canvas id="painSymptomChart" style="max-height:110px;"></canvas>
+      <div class="symptom-sub">
+        <span class="direction-pill dir-flat">Symptom stable</span>
+        <span class="direction-pill dir-down">THC down</span>
+        <span class="direction-pill dir-down">MME down</span>
+      </div>
+      <div class="symptom-note">Pain stayed flat across all three reviews, while oral THC eased lower and morphine equivalent dropped overall with a small late rebound. The graph suggests medication exposure changed more than the recorded pain burden.</div>
+    </div>
+
+    <div class="symptom-card">
+      <div class="symptom-top">
+        <div>
+          <div class="symptom-name">Health Score</div>
+          <div class="symptom-source">EQ-5D-5L Health VAS</div>
+        </div>
+        <div class="symptom-metric">50 → 51 → 0*</div>
+      </div>
+      <canvas id="healthSymptomChart" style="max-height:110px;"></canvas>
+      <div class="symptom-sub">
+        <span class="direction-pill dir-up">Symptom worse</span>
+        <span class="direction-pill dir-down">THC down</span>
+        <span class="direction-pill dir-down">MME down</span>
+      </div>
+      <div class="symptom-note">Health VAS was stable at Day 30 before dropping to 0 at Day 70, which looks inconsistent with the rest of the report and likely needs verification. THC and morphine equivalent both trended down, so the sharp final fall is probably not a simple medication signal.</div>
+    </div>
+
+    <div class="symptom-card">
+      <div class="symptom-top">
+        <div>
+          <div class="symptom-name">Mobility / Daily Living</div>
+          <div class="symptom-source">EQ-5D-5L Mobility + Usual Activities</div>
+        </div>
+        <div class="symptom-metric">3.0 → 3.0 → 2.5</div>
+      </div>
+      <canvas id="functionSymptomChart" style="max-height:110px;"></canvas>
+      <div class="symptom-sub">
+        <span class="direction-pill dir-down">Function improved</span>
+        <span class="direction-pill dir-down">THC down</span>
+        <span class="direction-pill dir-down">MME down</span>
+      </div>
+      <div class="symptom-note">Daily-living function improved modestly by the last review, while both oral THC and morphine equivalent were lower than baseline. This reads as a small functional gain despite slightly reduced medication exposure.</div>
+    </div>
+
+    <div class="symptom-card">
+      <div class="symptom-top">
+        <div>
+          <div class="symptom-name">Self Care</div>
+          <div class="symptom-source">EQ-5D-5L Self-Care</div>
+        </div>
+        <div class="symptom-metric">1 → 1 → 1</div>
+      </div>
+      <canvas id="selfCareSymptomChart" style="max-height:110px;"></canvas>
+      <div class="symptom-sub">
+        <span class="direction-pill dir-flat">Symptom stable</span>
+        <span class="direction-pill dir-down">THC down</span>
+        <span class="direction-pill dir-down">MME down</span>
+      </div>
+      <div class="symptom-note">Self-care remained unchanged throughout, even as both THC and morphine equivalent moved down from baseline. The graph suggests this domain was stable and not obviously sensitive to the medication changes seen here.</div>
+    </div>
+
+    <div class="symptom-card">
+      <div class="symptom-top">
+        <div>
+          <div class="symptom-name">Depression</div>
+          <div class="symptom-source">DASS-21 Depression</div>
+        </div>
+        <div class="symptom-metric">20 → 6 → 14</div>
+      </div>
+      <canvas id="depressionSymptomChart" style="max-height:110px;"></canvas>
+      <div class="symptom-sub">
+        <span class="direction-pill dir-down">Net improved</span>
+        <span class="direction-pill dir-down">THC down</span>
+        <span class="direction-pill dir-down">MME down</span>
+      </div>
+      <div class="symptom-note">Depression improved strongly at Day 30 and then partially worsened by Day 70, though it still finished below baseline. Both THC and morphine equivalent were lower across the same period, so the improvement was not dependent on higher recorded dose exposure.</div>
+    </div>
+
+    <div class="symptom-card">
+      <div class="symptom-top">
+        <div>
+          <div class="symptom-name">Anxiety</div>
+          <div class="symptom-source">DASS-21 Anxiety</div>
+        </div>
+        <div class="symptom-metric">8 → 6 → 10</div>
+      </div>
+      <canvas id="anxietySymptomChart" style="max-height:110px;"></canvas>
+      <div class="symptom-sub">
+        <span class="direction-pill dir-up">Symptom worse</span>
+        <span class="direction-pill dir-down">THC down</span>
+        <span class="direction-pill dir-down">MME down</span>
+      </div>
+      <div class="symptom-note">Anxiety improved initially but ended worse than baseline by Day 70, while both THC and morphine equivalent were trending lower. The shape suggests early benefit was not sustained over time.</div>
+    </div>
+
+    <div class="symptom-card">
+      <div class="symptom-top">
+        <div>
+          <div class="symptom-name">Stress</div>
+          <div class="symptom-source">DASS-21 Stress</div>
+        </div>
+        <div class="symptom-metric">20 → 14 → 24</div>
+      </div>
+      <canvas id="stressSymptomChart" style="max-height:110px;"></canvas>
+      <div class="symptom-sub">
+        <span class="direction-pill dir-up">Symptom worse</span>
+        <span class="direction-pill dir-down">THC down</span>
+        <span class="direction-pill dir-down">MME down</span>
+      </div>
+      <div class="symptom-note">Stress followed a U-shaped pattern, improving at Day 30 and then worsening beyond baseline by Day 70. That worsening happened while both medication tracks were lower, so the final rise likely reflects factors beyond dose alone.</div>
+    </div>
+
+    <div class="symptom-card">
+      <div class="symptom-top">
+        <div>
+          <div class="symptom-name">Overall Sleep Score</div>
+          <div class="symptom-source">ISI Total</div>
+        </div>
+        <div class="symptom-metric">9 → 6 → 10</div>
+      </div>
+      <canvas id="sleepSymptomChart" style="max-height:110px;"></canvas>
+      <div class="symptom-sub">
+        <span class="direction-pill dir-up">Symptom worse</span>
+        <span class="direction-pill dir-down">THC down</span>
+        <span class="direction-pill dir-down">MME down</span>
+      </div>
+      <div class="symptom-note">Sleep improved at Day 30 before worsening slightly above baseline by the last review. THC stepped down late in the period, but the graph does not show a clean linear relationship between lower THC and better sleep.</div>
+    </div>
+
+    <div class="symptom-card">
+      <div class="symptom-top">
+        <div>
+          <div class="symptom-name">Overall PTSD Burden</div>
+          <div class="symptom-source">PCL-5 Total</div>
+        </div>
+        <div class="symptom-metric">47 → 46 → 46</div>
+      </div>
+      <canvas id="ptsdSymptomChart" style="max-height:110px;"></canvas>
+      <div class="symptom-sub">
+        <span class="direction-pill dir-down">Symptom improved</span>
+        <span class="direction-pill dir-down">THC down</span>
+        <span class="direction-pill dir-down">MME down</span>
+      </div>
+      <div class="symptom-note">PTSD burden was essentially flat, with only a minimal improvement from baseline and persistent clinical elevation at every review. In this case, reductions in THC and morphine equivalent were not accompanied by a meaningful PTSD shift.</div>
+    </div>
+  </div>
+
+  <!-- ROW 1: DASS + ISI + PCL-5 CHARTS -->
+  <div class="section-label">Validated Outcome Measures</div>
+  <div class="grid-3">
+
+    <!-- DASS-21 -->
+    <div class="card">
+      <div class="card-title">DASS-21 &nbsp;·&nbsp; Depression / Anxiety / Stress</div>
+      <canvas id="dassChart"></canvas>
+      <div class="score-row" style="margin-top:12px;">
+        <div class="score-item">
+          <div style="font-size:9px; color:#88a0a8; margin-bottom:4px;">DEPRESSION</div>
+          <div style="display:flex; gap:6px; align-items:flex-end; justify-content:center;">
+            <span style="font-size:18px; font-weight:800; color:#88a0a8;">20</span>
+            <span style="font-size:18px; font-weight:800; color:#5a9ee0;">6</span>
+            <span style="font-size:18px; font-weight:800; color:#5fc87a;">14</span>
+          </div>
+          <span class="score-tag tag-moderate" style="font-size:8px;">Mod → Norm → Mod</span>
+        </div>
+        <div class="score-item">
+          <div style="font-size:9px; color:#88a0a8; margin-bottom:4px;">ANXIETY</div>
+          <div style="display:flex; gap:6px; align-items:flex-end; justify-content:center;">
+            <span style="font-size:18px; font-weight:800; color:#88a0a8;">8</span>
+            <span style="font-size:18px; font-weight:800; color:#5a9ee0;">6</span>
+            <span style="font-size:18px; font-weight:800; color:#5fc87a;">10</span>
+          </div>
+          <span class="score-tag tag-mild" style="font-size:8px;">Mild → Norm → Mod</span>
+        </div>
+        <div class="score-item">
+          <div style="font-size:9px; color:#88a0a8; margin-bottom:4px;">STRESS</div>
+          <div style="display:flex; gap:6px; align-items:flex-end; justify-content:center;">
+            <span style="font-size:18px; font-weight:800; color:#88a0a8;">20</span>
+            <span style="font-size:18px; font-weight:800; color:#5a9ee0;">14</span>
+            <span style="font-size:18px; font-weight:800; color:#5fc87a;">24</span>
+          </div>
+          <span class="score-tag tag-moderate" style="font-size:8px;">Mod → Norm → Mod</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ISI -->
+    <div class="card">
+      <div class="card-title">ISI &nbsp;·&nbsp; Insomnia Severity Index</div>
+      <canvas id="isiChart"></canvas>
+      <div class="score-row" style="margin-top:12px;">
+        <div class="score-item">
+          <div class="score-num" style="font-size:28px; color:#88a0a8;">9</div>
+          <div class="score-label" title="19 Nov 2025">Baseline</div>
+          <span class="score-tag tag-sub">Sub-threshold</span>
+        </div>
+        <div class="score-item">
+          <div class="score-num" style="font-size:28px; color:#5a9ee0;">6</div>
+          <div class="score-label" title="18 Dec 2025">Day 30</div>
+          <span class="score-tag tag-none">No insomnia</span>
+        </div>
+        <div class="score-item">
+          <div class="score-num" style="font-size:28px; color:#5fc87a;">10</div>
+          <div class="score-label" title="27 Jan 2026">Day 70</div>
+          <span class="score-tag tag-sub">Sub-threshold</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PCL-5 -->
+    <div class="card">
+      <div class="card-title">PCL-5 &nbsp;·&nbsp; PTSD Symptom Severity</div>
+      <canvas id="pclChart"></canvas>
+      <div class="score-row" style="margin-top:12px;">
+        <div class="score-item">
+          <div class="score-num" style="font-size:28px; color:#88a0a8;">47</div>
+          <div class="score-label" title="19 Nov 2025">Baseline</div>
+          <span class="score-tag tag-clinical">Clinical PTSD</span>
+        </div>
+        <div class="score-item">
+          <div class="score-num" style="font-size:28px; color:#5a9ee0;">46</div>
+          <div class="score-label" title="18 Dec 2025">Day 30</div>
+          <span class="score-tag tag-clinical">Clinical PTSD</span>
+        </div>
+        <div class="score-item">
+          <div class="score-num" style="font-size:28px; color:#5fc87a;">46</div>
+          <div class="score-label" title="27 Jan 2026">Day 70</div>
+          <span class="score-tag tag-clinical">Clinical PTSD</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 2: EQ change + Weight -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">EQ-5D-5L &nbsp;·&nbsp; Change from Baseline to Last Reported</div>
+      <div class="change-list">
+        <div class="change-row"><strong>Mobility</strong><span class="direction-pill dir-flat">No change</span></div>
+        <div class="change-row"><strong>Self Care</strong><span class="direction-pill dir-flat">No change</span></div>
+        <div class="change-row"><strong>Usual Activities</strong><span class="direction-pill dir-down">Improved</span></div>
+        <div class="change-row"><strong>Pain / Discomfort</strong><span class="direction-pill dir-flat">No change</span></div>
+        <div class="change-row"><strong>Anxiety / Depression</strong><span class="direction-pill dir-flat">No change</span></div>
+        <div class="change-row"><strong>Health VAS</strong><span class="direction-pill dir-up">Verify anomaly</span></div>
+      </div>
+      <div class="footnote" style="margin-top:8px;">This panel shows direction of change only, rather than repeating the raw EQ scores already reflected in the symptom overview above.</div>
+    </div>
+
+    <!-- Weight trend -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div class="card">
+        <div class="card-title">Body Weight (kg) &nbsp;·&nbsp; Trend</div>
+        <canvas id="weightChart" style="max-height:210px;"></canvas>
+        <div class="metric-strip">
+          <div class="metric-pill">
+            <div class="metric-label" title="19 Nov 2025">Baseline</div>
+            <div class="metric-value">97 kg</div>
+            <div class="metric-note" style="color:#88a0a8;">Starting weight</div>
+          </div>
+          <div class="metric-pill">
+            <div class="metric-label" title="18 Dec 2025">Day 30</div>
+            <div class="metric-value" style="color:#5a9ee0;">94 kg</div>
+            <div class="metric-note" style="color:#5fc87a;">−3 kg from baseline</div>
+          </div>
+          <div class="metric-pill">
+            <div class="metric-label" title="27 Jan 2026">Day 70</div>
+            <div class="metric-value" style="color:#5fc87a;">98 kg</div>
+            <div class="metric-note" style="color:#e06040;">+1 kg net vs baseline</div>
+          </div>
+        </div>
+        <div class="footnote">Weight decreased by Day 30, then returned above baseline by Day 70.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ROW 4: MEDICATION -->
+  <div class="section-label">Medication Dispensing - SafeScript Records</div>
+  <div class="full card">
+    <div class="card-title">Section 1.1 &nbsp;·&nbsp; Medical Cannabis Medications</div>
+    <table class="med-table">
+      <thead>
+        <tr>
+          <th>Medication</th>
+          <th>Formulation</th>
+          <th>Cannabinoid Content</th>
+          <th>Dispensing Pattern</th>
+          <th>Average Daily Dose (THC)</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Spectrum Red (Oil No. 1)</strong></td>
+          <td><span class="pill pill-oral">Oral Oil</span></td>
+          <td>26.3 mg/mL THC</td>
+          <td>Baseline · 16 Jan → 26 Feb (41 d, 50 mL) · 26 Feb → 24 Mar (27 d, 15 mL)</td>
+          <td><strong>26.3 mg/day</strong> (baseline) · 32.1 mg/day (41 d) · 14.6 mg/day (27 d)</td>
+          <td><span class="pill pill-oral">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>Mystery Mountain "Big Mango"</strong></td>
+          <td><span class="pill pill-inhale">Inhaled PRN</span></td>
+          <td>10% THC · 12% CBD · 0.61% CBG</td>
+          <td>28 Dec → 26 Feb (60 d, 15 g) · 26 Feb → 24 Mar (27 d, 15 g)</td>
+          <td>&lt;10 mg/day variable (PRN · dispensing rate only)</td>
+          <td><span class="pill pill-inhale">Active PRN</span></td>
+        </tr>
+        <tr>
+          <td><strong>Spectrum Canopy Valley</strong> <span class="pill pill-new" style="margin-left:4px;">NEW</span></td>
+          <td><span class="pill pill-inhale">Inhaled PRN</span></td>
+          <td>12% THC · 14% CBD</td>
+          <td>16 Jan → 24 Mar (68 d, 30 g)</td>
+          <td>PRN daytime use · not quantified</td>
+          <td><span class="pill pill-new">New Jan 2026</span></td>
+        </tr>
+        <tr>
+          <td><strong>Hay Day 10:10</strong></td>
+          <td><span class="pill pill-disc">Oral Oil</span></td>
+          <td>10 mg/mL THC · 10 mg/mL CBD</td>
+          <td>Baseline only - discontinued Jan 2026</td>
+          <td>Baseline: 10 mg THC/day → 0</td>
+          <td><span class="pill pill-disc">Discontinued</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="full card">
+    <div class="card-title">Section 1.2 &nbsp;·&nbsp; Opioid and Sedative Medications</div>
+    <table class="med-table">
+      <thead>
+        <tr>
+          <th>Medication</th>
+          <th>Strength</th>
+          <th>Quantity Dispensed</th>
+          <th>Dispensing Pattern</th>
+          <th>Average Daily Dose</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Oxycodone</strong></td>
+          <td>5 mg tablets</td>
+          <td>20 units per dispensing</td>
+          <td>31 Jul → 24 Dec 2025 (146 d) · 24 Dec 2025 → 24 Mar 2026 (90 d)</td>
+          <td>~0.7 mg/day, then ~1.1 mg/day morphine equiv.</td>
+          <td><span class="pill pill-opioid">Active PRN</span></td>
+        </tr>
+        <tr>
+          <td><strong>Temazepam</strong> <span class="pill pill-new" style="margin-left:4px;">NEW</span></td>
+          <td>10 mg tablets</td>
+          <td>25 units dispensed</td>
+          <td>24 Mar 2026 (first dispensing recorded)</td>
+          <td>First dispensing - no interval data</td>
+          <td><span class="pill pill-new">New Mar 2026</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Medication Trend Chart -->
+  <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Oral THC Trend &nbsp;·&nbsp; mg/day (Spectrum Red · dispensing-based)</div>
+        <canvas id="thcChart" style="max-height:160px;"></canvas>
+      <div class="footnote">Line view of total oral THC and its components. Hay Day 10:10 was discontinued in January 2026; PRN inhaled products remain excluded.</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Daily Morphine Equivalent &nbsp;·&nbsp; Oxycodone</div>
+      <canvas id="opioidChart" style="max-height:160px;"></canvas>
+      <div class="footnote">Oxycodone has been converted to daily morphine equivalent using a 1.5x conversion. Temazepam first appeared on 24 Mar 2026, so no benzodiazepine-equivalent trend is shown for GG.</div>
+    </div>
+  </div>
+
+  <div style="text-align:center; padding:20px; color:#3a5a4a; font-size:10px; border-top:1px solid #1e3040; margin-top:8px;">
+    OnTracka Australia Pty Limited &nbsp;·&nbsp; www.ontracka.com &nbsp;·&nbsp; info@ontracka.com &nbsp;·&nbsp; CONFIDENTIAL &nbsp;·&nbsp; OOM Connected Medicines Program
+  </div>
+
+</div>
+
+<script>
+const tp = ['Baseline', 'Day 30', 'Day 70'];
+const tpDates = {
+  'Baseline': '19 Nov 2025',
+  'Day 30': '18 Dec 2025',
+  'Day 70': '27 Jan 2026'
+};
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        title(items) {
+          const label = items[0]?.label || '';
+          return tpDates[label] ? `${label} - ${tpDates[label]}` : label;
+        }
+      }
+    }
+  },
+  scales: {
+    x: { ticks: { color: '#88a0a8', font: { size: 10 } }, grid: { color: '#1e3040' } },
+    y: { ticks: { color: '#88a0a8', font: { size: 10 } }, grid: { color: '#1e3040' }, beginAtZero: true }
+  }
+};
+
+const ggThc = [36.3, 36.3, 32.1];
+const ggMme = [2.25, 1.05, 1.65];
+
+function normalizeSeries(values) {
+  const numeric = values.filter((value) => value !== null && value !== undefined);
+  const min = Math.min(...numeric);
+  const max = Math.max(...numeric);
+  if (max === min) return values.map(() => 50);
+  return values.map((value) => Math.round(((value - min) / (max - min)) * 100));
+}
+
+function buildMiniSymptomChart(id, symptomData) {
+  new Chart(document.getElementById(id), {
+    type: 'line',
+    data: {
+      labels: tp,
+      datasets: [
+        {
+          label: 'Symptom',
+          data: normalizeSeries(symptomData),
+          borderColor: '#f1d58a',
+          backgroundColor: 'transparent',
+          borderWidth: 2.5,
+          tension: 0.22,
+          pointRadius: 3.5,
+          pointBackgroundColor: '#f1d58a'
+        },
+        {
+          label: 'Total oral THC',
+          data: normalizeSeries(ggThc),
+          borderColor: '#5fc87a',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          tension: 0.22,
+          pointRadius: 3,
+          pointBackgroundColor: '#5fc87a'
+        },
+        {
+          label: 'Daily morphine equivalent',
+          data: normalizeSeries(ggMme),
+          borderColor: '#e07040',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          tension: 0.22,
+          pointRadius: 3,
+          pointBackgroundColor: '#e07040'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { ...chartDefaults.plugins, legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#5a7a8a', font: { size: 9 } }, grid: { color: '#1e3040' } },
+        y: { display: false, min: 0, max: 100, grid: { display: false } }
+      }
+    }
+  });
+}
+
+buildMiniSymptomChart('painSymptomChart', [4, 4, 4]);
+buildMiniSymptomChart('healthSymptomChart', [50, 51, 0]);
+buildMiniSymptomChart('functionSymptomChart', [3.0, 3.0, 2.5]);
+buildMiniSymptomChart('selfCareSymptomChart', [1, 1, 1]);
+buildMiniSymptomChart('depressionSymptomChart', [20, 6, 14]);
+buildMiniSymptomChart('anxietySymptomChart', [8, 6, 10]);
+buildMiniSymptomChart('stressSymptomChart', [20, 14, 24]);
+buildMiniSymptomChart('sleepSymptomChart', [9, 6, 10]);
+buildMiniSymptomChart('ptsdSymptomChart', [47, 46, 46]);
+
+// DASS line chart
+new Chart(document.getElementById('dassChart'), {
+  type: 'line',
+  data: {
+    labels: tp,
+    datasets: [
+      { label: 'Depression', data: [20,6,14], borderColor: '#e07040', backgroundColor: 'rgba(224,112,64,0.15)', tension: 0.3, pointRadius: 5, pointBackgroundColor: '#e07040' },
+      { label: 'Anxiety',    data: [8,6,10],  borderColor: '#d4a843', backgroundColor: 'rgba(212,168,67,0.1)',  tension: 0.3, pointRadius: 5, pointBackgroundColor: '#d4a843' },
+      { label: 'Stress',     data: [20,14,24], borderColor: '#5a9ee0', backgroundColor: 'rgba(90,158,224,0.1)', tension: 0.3, pointRadius: 5, pointBackgroundColor: '#5a9ee0' },
+    ]
+  },
+  options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: true, labels: { color: '#88a0a8', font: { size: 10 }, boxWidth: 10 } } } }
+});
+
+// ISI line chart
+new Chart(document.getElementById('isiChart'), {
+  type: 'line',
+  data: {
+    labels: tp,
+    datasets: [{ label: 'ISI Total', data: [9,6,10], borderColor: '#5fc87a', backgroundColor: 'rgba(95,200,122,0.15)', tension: 0.3, pointRadius: 6, pointBackgroundColor: '#5fc87a', fill: true }]
+  },
+  options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 28, ticks: { color:'#88a0a8', font:{size:10} }, grid: { color:'#1e3040' } } } }
+});
+
+// PCL-5 line chart
+new Chart(document.getElementById('pclChart'), {
+  type: 'line',
+  data: {
+    labels: tp,
+    datasets: [{ label: 'PCL-5 Total', data: [47,46,46], borderColor: '#e05a5a', backgroundColor: 'rgba(224,90,90,0.15)', tension: 0.3, pointRadius: 6, pointBackgroundColor: '#e05a5a', fill: true }]
+  },
+  options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 80, min: 0, ticks: { color:'#88a0a8', font:{size:10} }, grid: { color:'#1e3040' } } } }
+});
+
+// Weight trend
+new Chart(document.getElementById('weightChart'), {
+  type: 'line',
+  data: {
+    labels: tp,
+    datasets: [{
+      label: 'Body Weight',
+      data: [97,94,98],
+      borderColor: '#5a9ee0',
+      backgroundColor: 'rgba(90,158,224,0.18)',
+      tension: 0.25,
+      pointRadius: 6,
+      pointHoverRadius: 7,
+      pointBackgroundColor: ['#88a0a8','#5a9ee0','#5fc87a'],
+      pointBorderColor: ['#88a0a8','#5a9ee0','#5fc87a'],
+      fill: true
+    }]
+  },
+  options: {
+    ...chartDefaults,
+    plugins: { ...chartDefaults.plugins, legend: { display: false } },
+    scales: {
+      ...chartDefaults.scales,
+      y: {
+        ...chartDefaults.scales.y,
+        min: 90,
+        max: 100,
+        title: { display: true, text: 'kg', color:'#88a0a8', font:{size:9} }
+      }
+    }
+  }
+});
+
+// THC oral trend
+new Chart(document.getElementById('thcChart'), {
+  type: 'line',
+  data: {
+    labels: ['Baseline', 'Day 30', 'Day 70', 'Late Mar'],
+    datasets: [
+      { label:'Spectrum Red', data:[26.3,26.3,32.1,14.6], borderColor:'#5fc87a', backgroundColor:'rgba(95,200,122,0.12)', tension:0.28, pointRadius:5, pointBackgroundColor:'#5fc87a' },
+      { label:'Hay Day 10:10', data:[10,10,0,0], borderColor:'#d4a843', backgroundColor:'rgba(212,168,67,0.08)', tension:0.28, pointRadius:5, pointBackgroundColor:'#d4a843' },
+      { label:'Total oral THC', data:[36.3,36.3,32.1,14.6], borderColor:'#5a9ee0', backgroundColor:'rgba(90,158,224,0.08)', tension:0.28, pointRadius:5, pointBackgroundColor:'#5a9ee0' }
+    ]
+  },
+  options: {
+    ...chartDefaults,
+    plugins: { ...chartDefaults.plugins, legend: { display: true, labels: { color:'#88a0a8', font:{size:10}, boxWidth:10 } } },
+    scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 45, title: { display: true, text: 'mg/day', color:'#88a0a8', font:{size:9} } } }
+  }
+});
+
+// Opioid trend
+new Chart(document.getElementById('opioidChart'), {
+  type: 'line',
+  data: {
+    labels: ['Baseline verified', 'Jul-Dec interval', 'Dec-Mar interval'],
+    datasets: [{ label:'Morphine equivalent mg/day', data:[2.25, 1.05, 1.65], borderColor:'#e07040', backgroundColor:'rgba(224,112,64,0.12)', tension:0.28, pointRadius:5, pointBackgroundColor:'#e07040', fill:true }]
+  },
+  options: { ...chartDefaults, scales: { ...chartDefaults.scales, y: { ...chartDefaults.scales.y, max: 5, title: { display:true, text:'morphine equiv. mg/day', color:'#88a0a8', font:{size:9} } } } }
+});
+</script>
+</body>
+</html>
