@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OOM Reports</title>
+<style>
+  :root {
+    --bg: #0f1923;
+    --panel: #162030;
+    --panel-soft: #1a2838;
+    --ink: #e0e6ed;
+    --muted: #88a0a8;
+    --line: #1e3040;
+    --brand: #5fc87a;
+    --brand-deep: #1e5631;
+    --blue: #5a9ee0;
+    --gold: #d4a843;
+    --red: #e06040;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(95, 200, 122, 0.18), transparent 34rem),
+      radial-gradient(circle at 80% 20%, rgba(90, 158, 224, 0.14), transparent 30rem),
+      linear-gradient(135deg, #0a1018 0%, var(--bg) 48%, #101f1a 100%);
+    color: var(--ink);
+    font-family: "Aptos Display", "Aptos", "Trebuchet MS", sans-serif;
+    font-size: 14px;
+  }
+
+  .shell { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 32px 0 42px; }
+
+  .hero {
+    border: 1px solid rgba(95, 200, 122, 0.22);
+    background: linear-gradient(135deg, rgba(22, 32, 48, 0.94), rgba(18, 45, 34, 0.82));
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::after {
+    content: "";
+    position: absolute;
+    inset: auto -80px -120px auto;
+    width: 320px;
+    height: 320px;
+    border-radius: 50%;
+    background: rgba(95, 200, 122, 0.12);
+    filter: blur(8px);
+  }
+
+  .eyebrow {
+    color: var(--brand);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2.6px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  h1 { font-size: clamp(34px, 5vw, 58px); letter-spacing: -1.8px; line-height: 0.96; max-width: 680px; }
+
+  .hero-copy {
+    color: #b9c8ce;
+    font-size: 15px;
+    line-height: 1.7;
+    max-width: 720px;
+    margin-top: 16px;
+  }
+
+  .toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: center;
+    margin: 22px 0 18px;
+  }
+
+  .search {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: rgba(15, 25, 35, 0.88);
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 13px 16px;
+    outline: none;
+    font: inherit;
+  }
+
+  .search:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(95, 200, 122, 0.12); }
+
+  .summary {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .summary-pill {
+    border: 1px solid var(--line);
+    background: rgba(22, 32, 48, 0.76);
+    border-radius: 999px;
+    padding: 9px 12px;
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .summary-pill strong { color: var(--ink); margin-right: 5px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+
+  .report-card {
+    background: rgba(22, 32, 48, 0.9);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px;
+    display: flex;
+    min-height: 250px;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+  }
+
+  .report-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(95, 200, 122, 0.6);
+    background: rgba(26, 40, 56, 0.96);
+  }
+
+  .report-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--brand), var(--blue));
+  }
+
+  .report-top { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
+
+  .patient-code {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.7px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .report-card h2 { color: #fff; font-size: 24px; letter-spacing: -0.5px; }
+
+  .status {
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .status-active { background: #1a3d2b; color: var(--brand); border: 1px solid #2a5a3b; }
+  .status-baseline { background: #2d3010; color: #b8c840; border: 1px solid #4a4a20; }
+
+  .meta { display: grid; gap: 8px; margin: 18px 0; color: #b7c6cd; font-size: 13px; line-height: 1.5; }
+
+  .meta span { color: var(--muted); display: block; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+
+  .tag {
+    background: #0f1923;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--muted);
+    padding: 6px 9px;
+    font-size: 11px;
+  }
+
+  .actions { display: flex; gap: 10px; margin-top: 18px; }
+
+  .open-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    flex: 1;
+    border-radius: 10px;
+    background: var(--brand);
+    color: #082012;
+    font-weight: 800;
+    text-decoration: none;
+    transition: background 160ms ease, transform 160ms ease;
+  }
+
+  .open-link:hover { background: #7ee697; transform: translateY(-1px); }
+
+  .empty {
+    display: none;
+    border: 1px dashed var(--line);
+    border-radius: 16px;
+    color: var(--muted);
+    padding: 28px;
+    text-align: center;
+    background: rgba(22, 32, 48, 0.6);
+  }
+
+  .footer {
+    color: #59717a;
+    text-align: center;
+    font-size: 11px;
+    margin-top: 26px;
+  }
+
+  @media (max-width: 720px) {
+    .shell { width: min(100% - 24px, 1180px); padding-top: 18px; }
+    .hero { padding: 22px; border-radius: 14px; }
+    .toolbar { grid-template-columns: 1fr; }
+    .summary { justify-content: flex-start; }
+    .report-card { min-height: auto; }
+  }
+</style>
+</head>
+<body>
+<main class="shell">
+  <section class="hero">
+    <div class="eyebrow">OOM Connected Medicines Program</div>
+    <h1>Patient visual reports library</h1>
+    <p class="hero-copy">A central access point for current and future OOM report pages. Use search to find a patient, claim, status, or report type, then open the visual report in a new page.</p>
+  </section>
+
+  <section class="toolbar" aria-label="Report controls">
+    <input class="search" id="searchInput" type="search" placeholder="Search reports by patient, code, status, or source..." aria-label="Search reports">
+    <div class="summary" id="summary"></div>
+  </section>
+
+  <section class="grid" id="reportGrid" aria-live="polite"></section>
+  <div class="empty" id="emptyState">No reports match the current search.</div>
+
+  <div class="footer">OnTracka Australia Pty Limited - Confidential OOM reports</div>
+</main>
+
+<script>
+const reports = [
+  {
+    patient: 'Patient GG',
+    code: 'OOM001',
+    status: 'Active monitoring',
+    statusClass: 'status-active',
+    reportDate: '2 April 2026',
+    coverage: 'Baseline, Day 30, Day 70',
+    sources: 'OOM Platform, SafeScript, Prescriber Notes',
+    highlights: ['Validated outcomes', 'Medication trends', 'EQ-5D baseline vs Day 70'],
+    href: 'Patient GG.html'
+  },
+  {
+    patient: 'Patient KS',
+    code: 'OOM002',
+    status: 'Baseline only',
+    statusClass: 'status-baseline',
+    reportDate: '2 April 2026',
+    coverage: 'Baseline questionnaire data only',
+    sources: 'OOM Baseline, SafeScript, Prescriber Notes',
+    highlights: ['Baseline outcomes', 'Medication trends', 'Complex profile'],
+    href: 'Patient KS.html'
+  }
+];
+
+const grid = document.getElementById('reportGrid');
+const searchInput = document.getElementById('searchInput');
+const emptyState = document.getElementById('emptyState');
+const summary = document.getElementById('summary');
+
+function getSearchText(report) {
+  return [
+    report.patient,
+    report.code,
+    report.status,
+    report.reportDate,
+    report.coverage,
+    report.sources,
+    report.highlights.join(' ')
+  ].join(' ').toLowerCase();
+}
+
+function renderSummary(list) {
+  const activeCount = reports.filter(report => report.statusClass === 'status-active').length;
+  const baselineCount = reports.filter(report => report.statusClass === 'status-baseline').length;
+  summary.innerHTML = `
+    <div class="summary-pill"><strong>${list.length}</strong> shown</div>
+    <div class="summary-pill"><strong>${reports.length}</strong> total</div>
+    <div class="summary-pill"><strong>${activeCount}</strong> active</div>
+    <div class="summary-pill"><strong>${baselineCount}</strong> baseline only</div>
+  `;
+}
+
+function renderReports() {
+  const query = searchInput.value.trim().toLowerCase();
+  const filtered = reports.filter(report => getSearchText(report).includes(query));
+
+  grid.innerHTML = filtered.map(report => `
+    <article class="report-card">
+      <div class="report-top">
+        <div>
+          <div class="patient-code">${report.code}</div>
+          <h2>${report.patient}</h2>
+        </div>
+        <span class="status ${report.statusClass}">${report.status}</span>
+      </div>
+      <div class="meta">
+        <div><span>Report Date</span>${report.reportDate}</div>
+        <div><span>Coverage</span>${report.coverage}</div>
+        <div><span>Data Sources</span>${report.sources}</div>
+      </div>
+      <div class="tags">
+        ${report.highlights.map(item => `<span class="tag">${item}</span>`).join('')}
+      </div>
+      <div class="actions">
+        <a class="open-link" href="${report.href}">Open report</a>
+      </div>
+    </article>
+  `).join('');
+
+  emptyState.style.display = filtered.length ? 'none' : 'block';
+  renderSummary(filtered);
+}
+
+searchInput.addEventListener('input', renderReports);
+renderReports();
+</script>
+</body>
+</html>
